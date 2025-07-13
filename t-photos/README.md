@@ -1,4 +1,6 @@
-Team's photos
-====
+# Fotos del Equipo
 
-This directory must contain 2 photos of the team (an official one and one funny photo with all team members)
+Foto del equipo (De izquierda a derecha: Jose Heraldez, Abel Herrera, Pablo Gonzalez)
+
+![Imagen Grupal](<Foto Grupal.jpg> "Foto Grupal")
+
