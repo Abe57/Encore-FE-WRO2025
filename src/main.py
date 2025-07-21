@@ -9,216 +9,273 @@ import numpy as np
 # Proximity detection steering
 # Lap detection possibly based on MPU6050
 
+running = True
+
 TRIG = 23
 ECHO = 24
 
+IN1 = 20
+IN2 = 26
+
+ROI_MARGIN_X = 100
+
 GPIO.setmode(GPIO.BCM)
+GPIO.setup(IN1, GPIO.OUT)
+GPIO.setup(IN2, GPIO.OUT)
+
 GPIO.setup(TRIG, GPIO.OUT)
 GPIO.setup(ECHO, GPIO.IN)
 
-tune = False # Activate tuning mode
-toTune = "G" # Color to be tuned (R for red, G for green)
+tune = True # Activate tuning mode
+toTune = "R" # Color to be tuned
+tuneError = False
 
-HSVminR = [0,0,0]
-HSVmaxR = [0,0,0]
-HSVminG = [0,0,0]
-HSVmaxG = [0,0,0]
+TuneHSVmin = [0,0,0]
+TuneHSVmax = [0,0,0]
 
+colorList = [
+    {"name": "R","HSVmin":[0,0,0],"HSVmax":[0,0,0],"contours":[]},
+    {"name":"G","HSVmin":[0,0,0],"HSVmax":[0,0,0],"contours":[]}
+]
+
+blockCnts = []
+
+curFollow = {}
+
+frame = None
+display = None
+
+height = 360
+width = 640
+
+imgHSV = None
 kernel = np.ones((5,5),np.uint8)
 
 def empty(a):
     pass
 
-def getDistance():
-    GPIO.output(TRIG, True)
-    time.sleep(0.1)
-    GPIO.output(TRIG, False)
-    # Send pulse to HC-SR04
-
-    while GPIO.input(ECHO) == 0:
-        startTime = time.time()
-    while GPIO.input(ECHO) == 1:
-        endTime = time.time()
-
-    duration = endTime - startTime
-    return (duration * 34300) / 2
-    # Get distance in cm based on speed of sound
+def getArea(cont):
+    return cont['area']
 
 def distanceLoop():
-    try:
-        while True:
-            dist = getDistance()
-            print(f"Dist: {dist:.2f} cm")
-            time.sleep(0.75)
-    except Exception as e:
-        print(f"Distance loop error: {e}")
-    finally:
-        GPIO.cleanup()
+    global running
+    while running:
+        GPIO.output(TRIG, False)
+        time.sleep(1.75)
+
+        GPIO.output(TRIG, True)
+        time.sleep(0.00001)
+        GPIO.output(TRIG, False)
+
+        while GPIO.input(ECHO) == 0:
+            pulse_start = time.time()
+        while GPIO.input(ECHO) == 1:
+            pulse_end = time.time()
+
+        pulse_duration = pulse_end - pulse_start
+
+        distance = pulse_duration * 17150
+        distance = round(distance, 2)
+
+        print("Distance:", distance, "cm")
 
 def saveTuning():
+    global colorList
+    tuning = ""
+    for color in colorList:
+        if tune and toTune == color["name"]:
+            color["HSVmin"] = TuneHSVmin
+            color["HSVmax"] = TuneHSVmax
+        tuning = "{}{},{},{},{},{},{},{},".format(tuning, color["name"], color["HSVmin"][0],color["HSVmin"][1], color["HSVmin"][2], color["HSVmax"][0],color["HSVmax"][1],color["HSVmax"][2])
     with open("color_tune.txt", "w") as file:
-        file.write(f"{HSVminR[0]},{HSVminR[1]},{HSVminR[2]},{HSVmaxR[0]},{HSVmaxR[1]},{HSVmaxR[2]},{HSVminG[0]},{HSVminG[1]},{HSVminG[2]},{HSVmaxG[0]},{HSVmaxG[1]},{HSVmaxG[2]}")
+        file.write(tuning)
     print("Saved color tuning!")
 
-def loadTuning():
+def loadTuning(color:str) -> list:
+    HSVmin = [0,0,0]
+    HSVmax = [0,0,0]
     try:
         file = open("color_tune.txt","r")
     except FileNotFoundError:
         print("Tuning configuration not found, default values set to 0.")
         return
-    
-    global HSVminR
-    global HSVmaxR
-    global HSVminG
-    global HSVmaxG
 
+    indexOffset = 0
     values = file.readline().split(",")
-    # Split file content in an array
+    for i in colorList:
+        if color == values[indexOffset]:
+            HSVmin = [int(values[indexOffset+1]),int(values[indexOffset+2]),int(values[indexOffset+3])]
+            HSVmax = [int(values[indexOffset+4]),int(values[indexOffset+5]),int(values[indexOffset+6])]
+        indexOffset += 7
+    # Search through config file for color values
 
-    HSVminR = [int(values[0]),int(values[1]),int(values[2])]
-    HSVmaxR = [int(values[3]),int(values[4]),int(values[5])]
-    HSVminG = [int(values[6]),int(values[7]),int(values[8])]
-    HSVmaxG = [int(values[9]),int(values[10]),int(values[11])]
+    return HSVmin, HSVmax
 
-if tune and not (toTune == "R" or toTune == "G"):
+def trackColor(color:str):
+    global imgHSV
+    global display
+    global colorList
+
+    global TuneHSVmin
+    global TuneHSVmax
+
+    for colorVal in colorList:
+        if colorVal["name"] == color:
+            HSVmin = colorVal["HSVmin"]
+            HSVmax = colorVal["HSVmax"]
+
+    if tune:
+        cv.namedWindow("trackbars")
+        cv.resizeWindow("trackbars",720,430)
+
+        TuneHSVmin[0] = cv.getTrackbarPos("Hue Min","trackbars")
+        TuneHSVmin[1] = cv.getTrackbarPos("Sat Min","trackbars")
+        TuneHSVmin[2] = cv.getTrackbarPos("Val Min","trackbars")
+
+        TuneHSVmax[0] = cv.getTrackbarPos("Hue Max","trackbars")
+        TuneHSVmax[1] = cv.getTrackbarPos("Sat Max","trackbars")
+        TuneHSVmax[2] = cv.getTrackbarPos("Val Max","trackbars")
+        if toTune == color:
+            HSVmin = TuneHSVmin
+            HSVmax = TuneHSVmax
+        # Edit tuning
+
+    lower = np.array(HSVmin)
+    upper = np.array(HSVmax)
+    # Define threshold
+
+    mask = cv.inRange(imgHSV,lower,upper)
+    mask = cv.morphologyEx(mask,cv.MORPH_OPEN,kernel)
+    # Mask the object then apply morphologic transform to fill gaps
+
+    masked = cv.bitwise_and(display,display,mask=mask)
+    # Show colors through mask
+    x,y,w,h = 0,0,0,0
+    i = 0
+    for colorVal in colorList:
+        if colorVal["name"] == color:
+            colorList[i]["contours"] = []
+        i += 1
+
+    cnts,hirearchy = cv.findContours(mask,cv.RETR_EXTERNAL,cv.CHAIN_APPROX_NONE)
+    for cnt in cnts:
+        area = cv.contourArea(cnt)
+        if area>425:
+            peri = cv.arcLength(cnt,True)
+            approx = cv.approxPolyDP(cnt,0.02*peri,True)
+            x,y,w,h = cv.boundingRect(approx)
+            if (toTune == color and tune) or not tune:
+                cv.drawContours(masked,cnt,-1,(255,0,0),3)
+            i = 0
+            for colorVal in colorList:
+                if colorVal["name"] == color:
+                    colorList[i]["contours"].append({"color":color,"contour":cnt,"area":area,"x":x,"y":y,"width":w,"height":h})
+                i += 1
+    if toTune == color and tune:
+        cv.imshow(f"{color} Mask",masked)
+for color in colorList:
+    if toTune == color["name"]:
+        tuneError = False
+        continue
+if tuneError and tune:
     print("Error: Color to tune undefined.")
     exit()
 
-distance_thread = threading.Thread(target=distanceLoop, daemon=True)
-distance_thread.start()
-# Start distance loop in the background
-
-loadTuning()
+i = 0
+for color in colorList:
+    colorList[i]["HSVmin"],colorList[i]["HSVmax"] = loadTuning(color["name"])
+    i += 1
+# Load tuning for all colors in colorList
 
 if tune:
+    for colorVal in colorList:
+        if toTune == colorVal["name"]:
+            break
     cv.namedWindow("trackbars")
     cv.resizeWindow("trackbars",720,430)
-    if toTune == "R":
-        cv.createTrackbar("Hue Min","trackbars", HSVminR[0], 180, empty)
-        cv.createTrackbar("Sat Min","trackbars", HSVminR[1], 255, empty)
-        cv.createTrackbar("Val Min","trackbars", HSVminR[2], 255, empty)
-        cv.createTrackbar("Hue Max","trackbars", HSVmaxR[0], 180, empty)
-        cv.createTrackbar("Sat Max","trackbars", HSVmaxR[1], 255, empty)
-        cv.createTrackbar("Val Max","trackbars", HSVmaxR[2], 255, empty)
-    elif toTune == "G":
-        cv.createTrackbar("Hue Min","trackbars", HSVminG[0], 180, empty)
-        cv.createTrackbar("Sat Min","trackbars", HSVminG[1], 255, empty)
-        cv.createTrackbar("Val Min","trackbars", HSVminG[2], 255, empty)
-        cv.createTrackbar("Hue Max","trackbars", HSVmaxG[0], 180, empty)
-        cv.createTrackbar("Sat Max","trackbars", HSVmaxG[1], 255, empty)
-        cv.createTrackbar("Val Max","trackbars", HSVmaxG[2], 255, empty)
-    # Set default values to config file's stored values
+    cv.createTrackbar("Hue Min","trackbars", colorVal["HSVmin"][0], 180, empty)
+    cv.createTrackbar("Sat Min","trackbars", colorVal["HSVmin"][1], 255, empty)
+    cv.createTrackbar("Val Min","trackbars", colorVal["HSVmin"][2], 255, empty)
+    cv.createTrackbar("Hue Max","trackbars", colorVal["HSVmax"][0], 180, empty)
+    cv.createTrackbar("Sat Max","trackbars", colorVal["HSVmax"][1], 255, empty)
+    cv.createTrackbar("Val Max","trackbars", colorVal["HSVmax"][2], 255, empty)
+
+#distance_thread = threading.Thread(target=distanceLoop, daemon=True)
+#distance_thread.start()
+# Start distance loop in the background
+
 def main():
-    global HSVminR
-    global HSVmaxR
-    global HSVminG
-    global HSVmaxG
-
-    global tune
-    global toTune
-
+    global running
+    global imgHSV
+    global display
     global kernel
-    
+
     cap = cv.VideoCapture(0)
 
     if not cap.isOpened():
         print("Error: Could not open camera.")
         exit()
+    # Forward
+    GPIO.output(IN1, GPIO.HIGH)
+    GPIO.output(IN2, GPIO.LOW)
 
-    try:
-        while True:
-            ret, frame = cap.read() # Get single frame from video stream
-            
-            if not ret:
-                print("Error: Failed to capture frame.")
-                exit()
-            height = 360
-            width = 640
-            
-            frame = cv.resize(frame,(width,height))
-            display = frame.copy()
+    while running:
+        ret, frame = cap.read() # Get single frame from video stream
 
-            frame = cv.medianBlur(frame,15) # Average the image color
-            imgHSV = cv.cvtColor(frame,cv.COLOR_BGR2HSV) # Get HSV values from image
+        if not ret:
+            print("Error: Failed to capture frame.")
+            exit()
 
-            if tune:
-                Hmin = cv.getTrackbarPos("Hue Min","trackbars")
-                Vmin = cv.getTrackbarPos("Val Min","trackbars")
-                Smin = cv.getTrackbarPos("Sat Min","trackbars")
+        frame = cv.resize(frame,(width,height))
+        display = frame.copy()
 
-                Hmax = cv.getTrackbarPos("Hue Max","trackbars")
-                Smax = cv.getTrackbarPos("Sat Max","trackbars")
-                Vmax = cv.getTrackbarPos("Val Max","trackbars")
-                if toTune == "R":
-                    HSVminR = [Hmin,Smin,Vmin]
-                    HSVmaxR = [Hmax,Smax,Vmax]
-                elif toTune == "G":
-                    HSVminG = [Hmin,Smin,Vmin]
-                    HSVmaxG = [Hmax,Smax,Vmax]
-                # Edit tuning
-            if tune:
-                print("Red:",HSVminR[0],HSVmaxR[0],HSVminR[1],HSVmaxR[1],HSVminR[2],HSVmaxR[2])
-                print("Green:",HSVminG[0],HSVmaxG[0],HSVminG[1],HSVmaxG[1],HSVminG[2],HSVmaxG[2])
+        frame = cv.medianBlur(frame,15) # Average the image color
+        frame = cv.bilateralFilter(frame, 11, 75, 75)
+        imgHSV = cv.cvtColor(frame,cv.COLOR_BGR2HSV) # Get HSV values from image
+        cv.line(display,(ROI_MARGIN_X,0),(ROI_MARGIN_X,height),(255,0,255),2)
+        cv.line(display,(width-ROI_MARGIN_X,0),(width-ROI_MARGIN_X,height),(255,0,255),2)
 
-            lowerR = np.array(HSVminR)
-            upperR = np.array(HSVmaxR)
-            lowerG = np.array(HSVminG)
-            upperG = np.array(HSVmaxG)
-            # Define threshold
-
-            maskR = cv.inRange(imgHSV,lowerR,upperR)
-            maskG = cv.inRange(imgHSV,lowerG,upperG)
-            maskR = cv.dilate(maskR,kernel,iterations=3)
-            maskG = cv.dilate(maskG,kernel,iterations=3)
-            maskR = cv.erode(maskR,kernel, iterations=2)
-            maskG = cv.erode(maskG,kernel,iterations=2)
-            # Mask the object, dilate then erode to fill gaps
-
-            maskedR = cv.bitwise_and(display,display,mask=maskR)
-            maskedG = cv.bitwise_and(display,display,mask=maskG)
-            # Show colors through mask
-
-            cntsR,hirearchy = cv.findContours(maskR,cv.RETR_EXTERNAL,cv.CHAIN_APPROX_NONE)
-            for cnt in cntsR:
-                area = cv.contourArea(cnt)
-                if area>425 and not (toTune == "G" and tune):
-                    cv.drawContours(maskedR,cnt,-1,(255,0,0),3)
-                    peri = cv.arcLength(cnt,True)
-                    approx = cv.approxPolyDP(cnt,0.02*peri,True)
-                    xR,yR,wR,hR = cv.boundingRect(approx)
-                    cv.rectangle(display,(xR,yR),(xR+wR,yR+hR),(0,0,255),3)
-                    cv.line(display,(round(xR+(wR/2)),0),(round(xR+(wR/2)),height),(255,255,0),2)
-
-            cntsG,hirearchy = cv.findContours(maskG,cv.RETR_EXTERNAL,cv.CHAIN_APPROX_NONE)
-            for cnt in cntsG:
-                area = cv.contourArea(cnt)
-                if area>350 and not (toTune == "R" and tune):
-                    cv.drawContours(maskedG,cnt,-1,(255,0,0),3)
-                    peri = cv.arcLength(cnt,True)
-                    approx = cv.approxPolyDP(cnt,0.02*peri,True)
-                    xG,yG,wG,hG = cv.boundingRect(approx)
-                    cv.rectangle(display,(xG,yG),(xG+wG,yG+hG),(0,0,255),3)
-                    cv.line(display,(round(xG+(wG/2)),0),(round(xG+(wG/2)),height),(255,255,0),2)
-            # Get average position of large enough detected objects
-
-            cv.imshow("Image",display)
-            if toTune == "R" and tune:
-                cv.imshow("Red Mask",maskedR)
-            elif toTune == "G" and tune:
-                cv.imshow("Green Mask",maskedG)
-                
-            if cv.waitKey(1) & 0xFF == ord('q'):
-                break
-            time.sleep(0.005)
-    except KeyboardInterrupt:
-        print("Stopped by user")
-    finally:
-        cap.release()
-        cv.destroyAllWindows()
-        GPIO.cleanup()
+        blockCnts = []
         if tune:
-            saveTuning()
-        # Save tuning configuration to file if exited through pressing Q
+            trackColor(toTune)
+        else:
+            for color in colorList:
+                trackColor(color["name"])
+        for color in colorList:
+            if color["name"] == "R" or color["name"] == "G":                     
+                for cnt in color["contours"]:
+                    blockCnts.append(cnt)
+                    
+        blockCnts.sort(reverse=True,key=getArea)
+        for cnt in blockCnts:
+            cv.rectangle(display,(cnt["x"],cnt["y"]),(cnt["x"]+cnt["width"],cnt["y"]+cnt["height"]),(0,0,255),3)
+        try:
+            cv.rectangle(display,(blockCnts[0]["x"],blockCnts[0]["y"]),(blockCnts[0]["x"]+blockCnts[0]["width"],blockCnts[0]["y"]+blockCnts[0]["height"]),(0,255,0),3)
+            if not (blockCnts[0]["x"]+(blockCnts[0]["width"])/2 < ROI_MARGIN_X or blockCnts[0]["x"]+(blockCnts[0]["width"])/2 > width-ROI_MARGIN_X):
+                cv.line(display,(round(blockCnts[0]["x"]+(blockCnts[0]["width"]/2)),0),(round(blockCnts[0]["x"]+(blockCnts[0]["width"]/2)),height),(255,255,0),2)
+            else:
+                cv.line(display,(round(blockCnts[0]["x"]+(blockCnts[0]["width"]/2)),0),(round(blockCnts[0]["x"]+(blockCnts[0]["width"]/2)),height),(0,255,255),2)
+        except IndexError:
+            pass
+
+        cv.imshow("Image",display)
+
+        if cv.waitKey(1) & 0xFF == ord('q'):
+            running = False
+            break
+        time.sleep(0.05)
+
+    GPIO.output(IN1, GPIO.LOW)
+    GPIO.output(IN2, GPIO.LOW)
+    cap.release()
+    cv.destroyAllWindows()
+    if tune:
+        saveTuning()
+    # Save tuning configuration to file if exited through pressing Q
+
+dLoop = threading.Thread(target=distanceLoop)
+
+dLoop.start()
 
 if __name__ == "__main__":
     main()
