@@ -24,7 +24,7 @@ Foto del equipo, de izquierda a derecha **José Heráldez, Abel Herrera y Pablo 
 
 
 
-## Content
+## Contenido del Repositorio
 * `Componentes` Contiene todos los componentes utilizados en el proyecto.
 * `docs` Contiene todos los documentos del equipo y el diario de ingeniería.
 * `other` Otros archivos relacionados al desarollo del robot.
