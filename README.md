@@ -38,7 +38,7 @@ Foto del equipo, de izquierda a derecha **José Heráldez, Abel Herrera y Pablo 
 ## Generalidades del robot
 
 ### Foto del robot
-![imagen](<v-photos\Lateral-1.jpg> "imagen")
+![imagen](<v-photos/Lateral-1.jpg> "imagen")
 
 ### Configuración general 
 El robot parte de un chasis Ackerman prefabricado como base para acelerar el desarrollo. Sin embargo, este punto de partida presentó desafíos significativos, como el exceso de peso y la necesidad de rediseñar sistemas clave como la propulsión y la dirección.
