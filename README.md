@@ -28,7 +28,7 @@ Foto del equipo, de izquierda a derecha **José Heráldez, Abel Herrera y Pablo 
 * `Componentes` Contiene todos los componentes utilizados en el proyecto.
 * `docs` Contiene todos los documentos del equipo y el diario de ingeniería.
 * `other` Otros archivos relacionados al desarollo del robot.
-* `schemes` **contains one or several schematic diagrams of the electromechanical components illustrating all the elements (electronic components and motors) used in the vehicle and how they connect to each other.**
+* `schemes` Contiene los esquemas electromecánicos del vehículo y otros diagramas.
 * `src` Contiene todos los programas que se estarán usando en la competencia.
 * `t-photos` Contiene 2 fotos grupales (una formal y una divertida) y las fotos individuales.
 * `v-photos` Contiene las 6 fotos desde todos los ángulos.
@@ -40,7 +40,7 @@ Foto del equipo, de izquierda a derecha **José Heráldez, Abel Herrera y Pablo 
 ### Fotos del robot
 Primer modelo (actual)
 
-![Descripción de la imagen](other\primermodelo.jpg)
+![Descripción de la imagen](primermodelo.jpg)
 
 ### Componentes
 
