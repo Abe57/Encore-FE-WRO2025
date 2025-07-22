@@ -37,25 +37,25 @@ Foto del equipo, de izquierda a derecha **José Heráldez, Abel Herrera y Pablo 
 
 ## Generalidades del robot
 
-### Fotos del robot
-Primer modelo (actual)
-
-![Descripción de la imagen](primermodelo.jpg)
-
-### Componentes
+### Foto del robot
+![imagen](<v-photos\Lateral-1.jpg> "imagen")
 
 ### Configuración general 
+El robot parte de un chasis Ackerman prefabricado como base para acelerar el desarrollo. Sin embargo, este punto de partida presentó desafíos significativos, como el exceso de peso y la necesidad de rediseñar sistemas clave como la propulsión y la dirección.
 
 ### Descripción del chasis 
-
+El chasis original de metal (1700 g) se reemplazó con placas de acrílico cortadas a medida para solucionar el problema de peso. Esta modificación redujo el peso total a 1217 g y permitió optimizar el diseño con perforaciones específicas para los componentes. La estructura es de dos niveles para separar la electrónica de los componentes mecánicos.
 ### Sistema de dirección 
+Se implementó una geometría de dirección Ackerman para lograr giros estables y precisos, minimizando el deslizamiento de las ruedas. El mecanismo fue un diseño a medida del equipo, desarrollado a través de investigación, prototipado y calibración, y es accionado por un servomotor de alto torque para asegurar una respuesta firme.
 
 ### Sistema de propulsión 
-
+El diseño inicial priorizaba la velocidad con una relación de engranajes de 9:7, pero carecía del torque necesario para mover el robot desde cero. La solución fue invertir la relación a una de reducción 7:9, sacrificando velocidad máxima para obtener fuerza.
 ### Diseño Eléctrico 
-
+El sistema es controlado por una Raspberry Pi 5. Un controlador L298N se encarga de los motores, elegido por ser el único disponible para el equipo a pesar de sus conocidas ineficiencias. La percepción del entorno combina una webcam para identificar color y posición, y un sensor ultrasónico HC-SR04 para medir la distancia
 ### Gestión de la energía 
-
-### Demostración 
+El plan inicial de usar una sola power bank de 5V falló, ya que el controlador L298N consumía 2V, dejando solo 3V insuficientes para el motor. Se implementó un sistema dual: la power bank de 10000mAh alimenta exclusivamente a la Raspberry Pi, mientras que dos baterías de 9V en paralelo se dedican a los motores.
+### Demostración
+En las pruebas, diversos desperfectos electrónicos causaron retrasos que impidieron completar el reto de las 3 vueltas antes de la primera competencia (22 de julio).
 
 ### Características por mejorar
+El equipo ha identificado tres áreas clave para el futuro desarrollo: mejorar el tiempo de reacción del robot, que es lento debido a los sensores; aumentar la velocidad general; y optimizar la gestión de cables para evitar falsos contactos.
