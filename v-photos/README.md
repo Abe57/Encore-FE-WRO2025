@@ -7,7 +7,7 @@ Fotos del Vehículo
 ### Superior (Segundo nivel): 
 ![imagen](<Superior2.jpg> "imagen")
 ### Inferior: 
-![imagen](<inferior2.jpg> "imagen")
+![imagen](<Inferior2.jpg> "imagen")
 ### Lateral 1: 
 ![imagen](<lateral21.jpg> "imagen")
 ### Lateral 2: 
