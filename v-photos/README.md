@@ -1,16 +1,15 @@
 Fotos del Vehículo
 ====
 ### Frontal: 
-![imagen](<Frontal.jpg> "imagen")
+![imagen](<Frontal2.jpg> "imagen")
 ### Trasera: 
-![imagen](<Trasera.jpg> "imagen")
+![imagen](<Trasera2.jpg> "imagen")
 ### Superior (Segundo nivel): 
-![imagen](<Superior.jpg> "imagen")
+![imagen](<Superior2.jpg> "imagen")
 ### Inferior: 
-![imagen](<Inferior.jpg> "imagen")
+![imagen](<Inferior2.jpg> "imagen")
 ### Lateral 1: 
-![imagen](<Lateral-1.jpg> "imagen")
+![imagen](<Lateral21.jpg> "imagen")
 ### Lateral 2: 
-![imagen](<Lateral-2.jpg> "imagen")
-### Primer nivel: 
-![imagen](<primer-nivel.jpg> "imagen")
+![imagen](<Lateral22.jpg> "imagen")
+
