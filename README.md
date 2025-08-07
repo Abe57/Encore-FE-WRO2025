@@ -1,7 +1,7 @@
 Encore | WRO-Futuros Ingenieros 2025 | PAN 
 ==== 
 
-Este es el repositorio oficial del equipo Encore. Somos representantes del colegio La Salle-Margarita en las regionales de Colón, Panamá de la World Robot Olimpiad (WRO) 2025 en la categoría de Futuros Ingenieros.  
+Este es el repositorio oficial del equipo Encore. Somos representantes del colegio La Salle-Margarita en las regionales de Colón, Panamá de la World Robot Olympiad (WRO) 2025 en la categoría de Futuros Ingenieros.  
 
 La categoría de futuros ingenieros está enfocada en el diseño y la implementación de vehículos autónomos a escala. El desafío consiste en desarrollar un sistema capaz de navegar un circuito predefinido, identificando y superando obstáculos de forma autónoma mediante el procesamiento de datos de su entorno.  
 
@@ -34,19 +34,19 @@ Foto del equipo, de izquierda a derecha **José Heráldez, Abel Herrera y Pablo 
 
 
 ## Generalidades del robot
-## Fotos del robots
+## Fotos del robot
 ### Frontal: 
-![imagen](<v-photos/Frontal2.jpg> "imagen")
+![imagen](<v-photos/frontal2.jpg> "imagen")
 ### Trasera: 
-![imagen](<v-photos/Trasera2.jpg> "imagen")
+![imagen](<v-photos/trasera2.jpg> "imagen")
 ### Superior (Segundo nivel): 
 ![imagen](<v-photos/Superior2.jpg> "imagen")
 ### Inferior: 
 ![imagen](<v-photos/Inferior2.jpg> "imagen")
 ### Lateral 1: 
-![imagen](<v-photos/Lateral21.jpg> "imagen")
+![imagen](<v-photos/lateral21.jpg> "imagen")
 ### Lateral 2: 
-![imagen](<v-photos/Lateral22.jpg> "imagen")
+![imagen](<v-photos/lateral22.jpg> "imagen")
 
 ### Configuración general 
 El desarrollo del robot partió de un chasis Ackerman prefabricado para establecer una base mecánica sólida y acelerar el prototipado. Sin embargo, este punto de partida se convirtió en el primer desafío de ingeniería, ya que el diseño original presentaba problemas significativos de peso y una configuración de propulsión y dirección que requería un rediseño completo para cumplir con los objetivos de rendimiento del equipo.
