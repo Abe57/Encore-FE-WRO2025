@@ -64,6 +64,7 @@ La arquitectura eléctrica evolucionó a un sistema de control distribuido para 
 * Raspberry Pi 5 (Cerebro Principal): Se encarga de las tareas de alta carga computacional, como el procesamiento de imágenes de la webcam y la ejecución de la lógica de decisión principal.
 
 * Arduino Nano (Co-procesador de Tiempo Real): Se añadió para gestionar todas las tareas de bajo nivel que requieren una temporización precisa. El Nano controla directamente el driver de motores L298N, el servomotor, el sensor ultrasónico HC-SR04 y el giroscopio MPU6050, ejecutando los comandos que recibe de la Pi.
+![imagen](<schemes\ENCORE-DIAGRAMA-ESQUEMATICO.png> "imagen")
 
 ### Gestión de la energía 
 La estabilidad energética fue un desafío crítico. Inicialmente, al alimentar el Arduino Nano desde el puerto USB de la Raspberry Pi, la demanda de corriente combinada provocaba caídas de voltaje que reiniciaban la Pi. La solución fue diseñar un sistema de alimentación dual e independiente:
