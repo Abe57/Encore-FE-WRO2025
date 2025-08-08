@@ -72,6 +72,15 @@ La estabilidad energética fue un desafío crítico. Inicialmente, al alimentar 
 * Una power bank de 10000mAh se dedica exclusivamente a la Raspberry Pi.
 
 * Dos baterías de 9V en paralelo alimentan el driver L298N, y la salida regulada de 5V de este mismo driver se utiliza para alimentar el Arduino y sus periféricos. Esta configuración aísla los componentes y garantiza un funcionamiento estable.
+  
+### Diseño del Código y Programación
+La arquitectura del software se basa en un modelo de control distribuido que utiliza las fortalezas de cada procesador:
+
+* Raspberry Pi 5 (Python): Actúa como el cerebro principal. Se encarga de la visión por computadora con OpenCV para analizar la pista y los obstáculos. Ejecuta la lógica de decisión de alto nivel y envía comandos simples al Arduino.
+
+* Arduino Nano (C++): Funciona como un controlador de tiempo real. Su única tarea es ejecutar los comandos recibidos de la Pi con precisión. Gestiona directamente el control de los motores, el servo y la lectura de los sensores (ultrasónico y giroscopio), garantizando movimientos fluidos y sin interrupciones.
+
+Ambos se comunican a través del puerto serie (USB), permitiendo que la Pi se concentre en "pensar" y el Arduino en "actuar".
 ### Demostración
 Después de un arduo ciclo de desarrollo y pruebas, el robot es capaz de cumplir con los requisitos de la primera ronda, demostrando una navegación autónoma y la capacidad de detectar y esquivar obstáculos. El siguiente video muestra el funcionamiento actual del robot.
 
