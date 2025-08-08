@@ -74,7 +74,7 @@ La estabilidad energética fue un desafío crítico. Inicialmente, al alimentar 
 * Dos baterías de 9V en paralelo alimentan el driver L298N, y la salida regulada de 5V de este mismo driver se utiliza para alimentar el Arduino y sus periféricos. Esta configuración aísla los componentes y garantiza un funcionamiento estable.
 ### Demostración
 Después de un arduo ciclo de desarrollo y pruebas, el robot es capaz de cumplir con los requisitos de la primera ronda, demostrando una navegación autónoma y la capacidad de detectar y esquivar obstáculos. El siguiente video muestra el funcionamiento actual del robot.
-Link del video: xxxxx
+
 
 ### Características por mejorar
 Basado en los resultados de la primera competencia y las pruebas continuas, el equipo ha identificado las siguientes áreas clave para el desarrollo futuro:
