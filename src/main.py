@@ -2,18 +2,25 @@ import os
 import serial
 import time
 import threading
-import RPi.GPIO as GPIO
+from gpiozero import Button
 import cv2 as cv
 import numpy as np
-from mpu6050 import mpu6050
+from picamera2 import Picamera2
 # TODO:
+
+tune = False # Activate tuning mode
+toTune = "R" # Color to be tuned
+tuneError = False # Error if toTune is not in colorList
+
+
 
 running = True # Controls if the program is running
 ready = False # Indicates if the robot is ready to receive commands
 
-command = ""
+command_buffer = []
+command_buffer_lock = threading.Lock()
 
-BUTTON = 17 # Pin for starting button
+BUTTON_PIN = 17 # Pin for starting button
 SERIAL_PORT = '/dev/ttyUSB0' # Serial port for communication with the robot
 
 ROI_MARGIN_X = 100 # Margin for marking regions of interest at edges
@@ -21,7 +28,9 @@ ROI_MARGIN_X = 100 # Margin for marking regions of interest at edges
 MIN_DIST = 30 # Minimum distance to consider for turning
 STEER_ANGLE = 35 # Angle for turning left or right
 
-distance = 0 # Proximity sensor readings
+distance_left = 0  # Left proximity sensor
+distance_center = 0  # Center proximity sensor
+distance_right = 0  # Right proximity sensor
 direction = 0 # Right = 1, Left = -1
 yaw = 0.00 # Yaw angle from gyro sensor
 
@@ -30,12 +39,11 @@ angGiro = 0.00 # Angle to match when turning
 
 cw = 0 # Clockwise = 1, Counterclockwise = -1
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(BUTTON, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
-tune = False # Activate tuning mode
-toTune = "O" # Color to be tuned
-tuneError = False # Error if toTune is not in colorList
+button = Button(BUTTON_PIN, pull_up=False)
+
+cam = Picamera2()
+
 
 FirstRound = True # Flag to indicate if it's the first round of match
 canStop = False # Flag to indicate if the robot can stop
@@ -78,23 +86,59 @@ def getY(cnt) -> int:
     # Function to get y coordinate of contour for sorting
 
 def serialCommsLoop():
-    global running, distance, yaw, ready, command, canStop
+    global distance_left, distance_center, distance_right, yaw, ready, canStop
     try:
+        global ser
         ser = serial.Serial(SERIAL_PORT, 9600, timeout=1)
         print(f"Connected to {SERIAL_PORT} at 9600 baud.")
+
+        while True:
+            if ser.in_waiting > 0:
+                line = ser.readline().decode('utf-8', errors='replace').strip()
+                if line == "MPU6050 Initialized.":
+                    print("Waiting for button press")
+                    break
+
+        # Wait for button press
+        while not button.is_pressed:
+            time.sleep(0.01)
+        print("Sending START\n")
+        ser.write(b"START\n")
+
+        # Wait for 'Started!' from serial
         while True:
             if ser.in_waiting > 0:
                 line = ser.readline().decode('utf-8', errors='replace').strip()
                 if line == "Started!":
+                    print("Started!")
+                    global ready
                     ready = True
-                elif not ready:
-                    ser.write(b"START\n")
+                    break
+
+        # 4. Main serial comms loop
+        while True:
+            if ser.in_waiting > 0:
+                line = ser.readline().decode('utf-8', errors='replace').strip()
                 if ready:
-                    if line.startswith("PROX"):
+                    if line.startswith("PROX_L"):
                         try:
-                            getStuff = float(line[len("PROX"):].strip())
+                            getStuff = float(line[len("PROX_L"):].strip())
                             if getStuff != 0:
-                                distance = getStuff
+                                distance_left = getStuff
+                        except ValueError:
+                            pass
+                    elif line.startswith("PROX_C"):
+                        try:
+                            getStuff = float(line[len("PROX_C"):].strip())
+                            if getStuff != 0:
+                                distance_center = getStuff
+                        except ValueError:
+                            pass
+                    elif line.startswith("PROX_R"):
+                        try:
+                            getStuff = float(line[len("PROX_R"):].strip())
+                            if getStuff != 0:
+                                distance_right = getStuff
                         except ValueError:
                             pass
                     elif line.startswith("YAW"):
@@ -105,9 +149,13 @@ def serialCommsLoop():
                     elif line == "Stopping":
                         print("Stopping")
                         canStop = True
-                        ser.write(f"{command}\n".encode('utf-8'))                                     
+                        ser.write(f"{command}\n".encode('utf-8'))
                         break
-                    ser.write(f"{command}\n".encode('utf-8'))                                     
+                    with command_buffer_lock:
+                        if command_buffer:
+                            message = ";".join(command_buffer) + "\n"
+                            ser.write(message.encode('utf-8'))
+                            command_buffer.clear()
     except serial.SerialException as e:
         print(f"Serial error: {e}")
     except Exception as e:
@@ -206,7 +254,8 @@ def trackColor(color:str):
                 cv.drawContours(masked,cnt,-1,(255,0,0),3)
                 colorList[colorIdx]["contours"].append({"color": color, "area": area, "x": x, "y": y, "width": w, "height": h})
     if toTune == color and tune:
-        cv.imshow(f"{color} Mask",masked)
+        # Convert from RGB to BGR for correct OpenCV display
+        cv.imshow(f"{color} Mask", cv.cvtColor(masked, cv.COLOR_RGB2BGR))
 for color in colorList:
     if toTune == color["name"]:
         tuneError = False
@@ -247,20 +296,15 @@ def main():
     global yaw
     global canStop
     global angGiro
+    
 
-    if not cap.isOpened():
+    if not cam.is_open:
         print("Error: Could not open camera.")
         exit()
     if not tune:
-        command = "FW"
-    while not ready:
-        time.sleep(0.1)
+        command_buffer.append("FW")
     while running:
-        ret, frame = cap.read() # Get single frame from video stream
-
-        if not ret:
-            print("Error: Failed to capture frame.")
-            exit()
+        frame =  cam.capture_array()# Get single frame from video stream
 
         frame = cv.resize(frame,(width,height)) # Rescale frame to specified resolution
         frame = cv.rotate(frame, cv.ROTATE_180) # Rotate frame to correct orientation
@@ -269,7 +313,7 @@ def main():
         # --- Noise reduction pipeline ---
         frame = cv.GaussianBlur(frame, (7, 7), 0)  # Add Gaussian blur
         frame = cv.medianBlur(frame, 5)            # Use smaller median blur kernel
-        frame = cv.bilateralFilter(frame, 9, 75, 75) # Optional: keep bilateral filter, but smaller kernel
+        #frame = cv.bilateralFilter(frame, 9, 75, 75) # Optional: keep bilateral filter, but smaller kernel
         imgHSV = cv.cvtColor(frame,cv.COLOR_BGR2HSV) # Get HSV values from image
         # --- End noise reduction pipeline ---
 
@@ -334,7 +378,7 @@ def main():
             cv.line(display,(round(closestBlock["x"]+(closestBlock["width"]/2)),0),(round(closestBlock["x"]+(closestBlock["width"]/2)),height),(255,255,0),2)
             direction = {"R": 1,"G": -1}.get(closestBlock["color"],"unknown")
         else:
-            if distance > MIN_DIST and angGiro < abs(yaw):
+            if distance_center > MIN_DIST and angGiro < abs(yaw):
                 direction = 0
             else:
                 direction = cw
@@ -342,15 +386,17 @@ def main():
                     angGiro = abs(yaw) + 90
             # if no block is found and theres nothing in the way, set direction to forward
         if direction != lastDir:
-            command = f"SERVO{STEER_ANGLE*direction}"
+            with command_buffer_lock:
+                command_buffer.append(f"SERVO{STEER_ANGLE*direction}")
             print("TURN {}".format({1: "RIGHT",0:"FW",-1: "LEFT"}.get(direction,"unknown")))
             # if direction changes, turn to that direction
 
-        cv.imshow("Image",display)
+    #cv.imshow("Image", cv.cvtColor(display, cv.COLOR_RGB2BGR))
         #print(f"Distance: {distance}, Yaw: {yaw}")
 
         if (cv.waitKey(1) & 0xFF == ord('q')) or abs(yaw) > 1090:
-            command = "STOP"
+            with command_buffer_lock:
+                command_buffer.append("STOP")
             running = False
             break
         time.sleep(0.1) # Sleep to reduce CPU usage
@@ -359,7 +405,7 @@ def main():
             break
         time.sleep(0.1)
 
-    cap.release()
+    cam.close()
     cv.destroyAllWindows()
     # Stop motors and clean up GPIO
     if tune:
@@ -367,30 +413,32 @@ def main():
     # Save tuning configuration to file if exited through pressing Q
 
 def buttonCheck():
-    global running,command
+    global running
+    # Wait for button release after initial press
+    while running and button.is_pressed:
+        time.sleep(0.01)
+    # Now wait for the next press to stop
     while running:
-        if not GPIO.input(BUTTON) == GPIO.HIGH:
-            break
-    while running:
-        if GPIO.input(BUTTON) == GPIO.HIGH:
-            command = "STOP"
+        if button.is_pressed:
+            with command_buffer_lock:
+                command_buffer.append("STOP")
             running = False
             break
         time.sleep(0.01)
 
 if __name__ == "__main__":
+    config = cam.create_preview_configuration(main={"size": (width, height)})
+    cam.configure(config)
+    cam.start()
+    while not cam.is_open:
+        time.sleep(0.1)
+    # Start serial comms thread and wait for robot to be ready (if not tuning)
     if not tune:
         commsThread = threading.Thread(target=serialCommsLoop, daemon=True)
         commsThread.start()
-    command = "SERVO0"  # Initialize command to stop servo
-    ready = tune
-    while not ready:
-        time.sleep(0.1)
-    cap = cv.VideoCapture(0)
-    print("Press start button")
-    while not GPIO.input(BUTTON) == GPIO.HIGH:  # Wait for button press to start
-        cap.read()
-        time.sleep(0.01)
-    bLoop = threading.Thread(target=buttonCheck)  # Add watcher thread
-    bLoop.start()
+        while not ready:
+            time.sleep(0.1)
+        # Start button watcher (for STOP)
+        bLoop = threading.Thread(target=buttonCheck)
+        bLoop.start()
     main()
